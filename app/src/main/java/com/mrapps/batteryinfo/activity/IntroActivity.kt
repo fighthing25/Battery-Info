@@ -1,13 +1,17 @@
 package com.mrapps.batteryinfo.activity
 
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.viewpager.widget.PagerAdapter
 import com.mrapps.batteryinfo.R
 import com.mrapps.batteryinfo.databinding.ActivityIntroBinding
 import com.mrapps.batteryinfo.utils.IntroUtils
@@ -24,7 +28,6 @@ class IntroActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         introUtils = IntroUtils(this)
-
         setupWindow()
         setupLayouts()
         setUpClickListeners()
@@ -37,8 +40,7 @@ class IntroActivity : AppCompatActivity() {
                 it.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             }
         } else {
-            @Suppress("DEPRECATION")
-            window.setFlags(
+            @Suppress("DEPRECATION") window.setFlags(
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN
             )
@@ -47,11 +49,8 @@ class IntroActivity : AppCompatActivity() {
 
     private fun setupLayouts() {
         layouts = intArrayOf(
-            R.layout.intro_screen_1,
-            R.layout.intro_screen_2,
-            R.layout.intro_screen_3
+            R.layout.intro_screen_1, R.layout.intro_screen_1
         )
-
         setUpFirstAndSecondPage()
         binding.viewPager.adapter = IntroAdapter(this, layouts)
         binding.viewPager.addOnPageChangeListener(object : androidx.viewpager.widget.ViewPager.OnPageChangeListener {
@@ -74,19 +73,16 @@ class IntroActivity : AppCompatActivity() {
                 finish()
                 return
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        } catch (e: Exception) { }
 
         binding.startButton.setOnClickListener {
             introUtils.setFirstTimeLaunch(false)
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }
-
         binding.lottieNext.setOnClickListener {
-            val current = binding.viewPager.currentItem
-            if (current < 2) binding.viewPager.setCurrentItem(current + 1, true)
+            val c = binding.viewPager.currentItem
+            if (c < 2) binding.viewPager.setCurrentItem(c + 1, true)
         }
     }
 
@@ -106,10 +102,9 @@ class IntroActivity : AppCompatActivity() {
         binding.ivDot.setImageResource(R.drawable.intro_dot_3)
     }
 
-    class IntroAdapter(private val context: android.content.Context, private val layouts: IntArray) :
-        androidx.viewpager.widget.PagerAdapter() {
+    class IntroAdapter(private val context: Context, private val layouts: IntArray) : PagerAdapter() {
         override fun instantiateItem(container: ViewGroup, position: Int): Any {
-            val inflater = context.getSystemService(android.content.Context.LAYOUT_INFLATER_SERVICE) as android.view.LayoutInflater
+            val inflater = context.getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
             val view = inflater.inflate(layouts[position], container, false)
             container.addView(view)
             return view
