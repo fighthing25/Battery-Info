@@ -35,38 +35,26 @@ class FragmentHome : Fragment() {
         override fun onReceive(context: Context?, intent: Intent?) {
             try {
                 if (intent == null || _binding == null) return
-                // ... semua kode kamu yang lama, tapi ganti requireContext() jadi context ?: return
                 val deviceStatus = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
                 val isCharging = deviceStatus == BatteryManager.BATTERY_STATUS_CHARGING || deviceStatus == BatteryManager.BATTERY_STATUS_FULL
 
                 binding.chargingStatus.text = if (isCharging) "Charging" else "Discharging"
-                
+
                 val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                 val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
                 if (scale <= 0) return
                 val batteryPct = level / scale.toFloat()
-                val batteryPercentage = (batteryPct * 100).toInt()
-                binding.batteryPercentage.text = "$batteryPercentage%"
+                binding.batteryPercentage.text = "${(batteryPct * 100).toInt()}%"
 
-                // voltage
                 var d = intent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1).toDouble()
                 if (d > 12) d /= 1000.0
                 val df = DecimalFormat("#.##")
                 binding.voltage.text = df.format(d) + "V"
-
-                // temp
-                val temp = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1).toDouble()
-                binding.temperature.text = df.format(temp / 10) + "°C"
-
-                val capacity = getAmperageSafe() ?: 0f
-                val watt = capacity * d / 1000
-                binding.watt.text = df.format(watt) + "W"
+                binding.temperature.text = df.format(intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1).toDouble() / 10) + "°C"
                 binding.technology.text = intent.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY) ?: "Li-ion"
-                binding.abv?.attachBatteryIntent(intent)
+                try { binding.abv.attachBatteryIntent(intent) } catch (e: Exception) {}
 
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -92,7 +80,7 @@ class FragmentHome : Fragment() {
             setupHalfGauge()
             setupOnClicks()
             setupBatteryInfo()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {}
     }
 
     private fun setupHalfGauge() {
@@ -104,23 +92,16 @@ class FragmentHome : Fragment() {
             binding.halfGauge.addRange(range)
             binding.halfGauge.addRange(range2)
             binding.halfGauge.setNeedleColor(requireContext().getColor(R.color.needleColor))
-        } catch (e: Exception) { e.printStackTrace() }
-    }
-
-    private fun getAmperageSafe(): Float? {
-        return try {
-            val bm = requireContext().getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-            var cur = -bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).toFloat()
-            if (cur == -2147483648f || cur == 0f) return 0f // not supported
-            if (abs(cur / 1000) < 1.0) cur *= 1000
-            cur / 1000
-        } catch (e: Exception) { 0f }
+        } catch (e: Exception) {}
     }
 
     private fun getAmperage(context: Context): String? {
         return try {
-            val v = getAmperageSafe()
-            DecimalFormat("#.##").format(v?.toDouble() ?: 0.0)
+            val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+            var cur = -bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).toFloat()
+            if (cur == -2147483648f) return "0"
+            if (abs(cur / 1000) < 1.0) cur *= 1000
+            DecimalFormat("#.##").format((cur / 1000).toDouble())
         } catch (e: Exception) { "0" }
     }
     private fun getAmperageSamsung(context: Context): String? = getAmperage(context)
@@ -133,12 +114,11 @@ class FragmentHome : Fragment() {
     @SuppressLint("SetTextI18n")
     private fun setupBatteryInfo() {
         try {
-            val totalCapacity = getBatteryCapacity(requireActivity()).toInt()
-            binding.maxCapacity.text = "$totalCapacity mAh"
+            binding.maxCapacity.text = "${getBatteryCapacity(requireActivity()).toInt()} mAh"
             binding.version.text = Build.VERSION.RELEASE
             binding.model.text = Build.MODEL
             binding.manufacture.text = Build.MANUFACTURER
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {}
     }
 
     @SuppressLint("PrivateApi")
@@ -149,21 +129,27 @@ class FragmentHome : Fragment() {
         } catch (e: Exception) { 4000.0 }
     }
 
+    private fun formatTime(seconds: Long): String {
+        val h = seconds / 3600; val m = (seconds % 3600) / 60
+        return "${h}hrs ${m}min"
+    }
+
     override fun onResume() {
         super.onResume()
         handler.post(object : Runnable {
             override fun run() {
                 try {
                     if (_binding == null) return
-                    val currentValue = getAmperageSafe()?.toDouble() ?: 0.0
-                    binding.halfGauge.value = currentValue
-                    val df = DecimalFormat("#.##")
-                    val amp = getAmperageSafe() ?: 0f
+                    val ampStr = getAmperage(requireContext()) ?: "0"
+                    val cur = ampStr.toDoubleOrNull() ?: 0.0
+                    binding.halfGauge.value = cur
+                    val amp = ampStr.toFloatOrNull() ?: 0f
                     if (amp < 0) minPower = min(minPower, amp.toDouble())
                     if (amp > 0) maxPower = max(maxPower, amp.toDouble())
+                    val df = DecimalFormat("#.##")
                     binding.maxIn.text = "Max In = " + df.format(maxPower) + " mA"
                     binding.maxOut.text = "Max Out = " + df.format(minPower) + " mA"
-                } catch (e: Exception) { e.printStackTrace() }
+                } catch (e: Exception) {}
                 handler.postDelayed(this, 500)
             }
         })
